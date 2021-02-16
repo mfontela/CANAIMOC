@@ -20,6 +20,9 @@ text-align: justify}
 ![](CANAIMOC_banner.png)
 
 ```{r setup, include=FALSE}
+
+##### NOTE ###### update this file with you local path in lines 306 and 357 (to load OOI and GLODAP data)
+
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,fig.align="center")
 list.of.packages <- c("R.matlab", "rlist", "tidyverse", "readxl", "marmap", "seacarb", "xlsx", "reshape2", "Imap", "patchwork", "ncdf4", "lubridate", "plotly")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -351,7 +354,7 @@ Let's load some high-quality ocean carbon data collected through chemical analys
 # Load GLODAP ------------------------------------------------------------
 local_file=1 #Faster when local file is available, obvious.
 if (local_file) {
-  A<-readMat("C:/Users/MFontela/Nextcloud/Database/GLODAP/GLODAPv2.2020_Atlantic_Ocean.mat") #find your local copy of file GLODAPv2.2020_Atlantic_Ocean.mat 
+  A<-readMat("XXXXXXXXXXXXXXXXXXXXXXX/GLODAPv2.2020_Atlantic_Ocean.mat") #find your local copy of file GLODAPv2.2020_Atlantic_Ocean.mat 
 } else{
   #Alternative: download the .mat file directly from the GLODAPv2 web (https://www.glodap.info/index.php/merged-and-adjusted-data-product/)
   library(utils)
