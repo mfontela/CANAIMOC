@@ -17,6 +17,8 @@ body {
 text-align: justify}
 </style>
 ```
+![](CANAIMOC_banner.png)
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,fig.align="center")
 list.of.packages <- c("R.matlab", "rlist", "tidyverse", "readxl", "marmap", "seacarb", "xlsx", "reshape2", "Imap", "patchwork", "ncdf4", "lubridate", "plotly")
@@ -338,6 +340,7 @@ Tempplot / Salplot / pCO2plot
 WoW! this half-year of data is cool and promising, but this workshop was about ocean carbon variables computations, right? True. And I told you before that we need at least two parameters in order to apply the `carb` function and solve the carbon system and **by now we only have pCO~2~ data**. Also true. then, we are going to do a *little trick* to achieve our second variable: as we have the salinity from the CTD we are going to compute a *modelled* alkalinity based on the strong relationship between salinity and total alkalinity.
 
 ## Get alkalinity data
+
 Let's load some high-quality ocean carbon data collected through chemical analysis of discrete water samples by that is *open access*! OMG! where? In [GLODAP](www.glodap.info), obviously!
 
 ::: {style="text-align: center"}
@@ -369,7 +372,8 @@ With the previous chunk of code we load all the data for the Atlantic Ocean that
 ```{r Sal vs Alk data, echo=FALSE, eval=TRUE, fig.width=10, fig.height=7}
 Irminger<-data.frame(lon=c(-45,-30),
                      lat=c(56,65))
-I<-A%>%
+
+I<-A%>% #the ppe operator ("%>%") to perform operations in logical sequence (like saying, "and then" in your code)
   filter(G2latitude>=(min(Irminger$lat)) & G2latitude<=(max(Irminger$lat)))%>% #latitude filter
   filter(G2longitude>=(min(Irminger$lon)) & G2longitude<=(max(Irminger$lon)))%>% #longitude filter
   mutate_all(.funs = funs(ifelse(. == "NaN", NA, .)))%>% #because it's a .mat file
@@ -508,8 +512,7 @@ pHplot+ pCO2plot + DICplot + ALKplot + xcCO3plot + Omegaplot + plot_layout(nrow 
 
 This is the natural seasonal variability in surface waters of a subpolar seasonally stratified biome [@FayMcKinley2017]. The shoal of the mixed layer depth leads to the strong biological productivity of spring (months not show in this example)/summer that strongly draws down DIC. The reason behind the winter increase of pCO~2~ is the strong vertical mixing that supplies carbon from depth to the surface [@Kortzinger2008].
 
-##Future conditions
-Can we add an anthropogenic perturbation on top of this natural variability? Come on, put your own *dystopian googles* and let's see: **Assuming that seawater pCO~2~ will follow atmospheric pCO~2~**, what will be the status in a +100 ppm atmospheric CO~2~ world?
+\#\#Future conditions Can we add an anthropogenic perturbation on top of this natural variability? Come on, put your own *dystopian googles* and let's see: **Assuming that seawater pCO~2~ will follow atmospheric pCO~2~**, what will be the status in a +100 ppm atmospheric CO~2~ world?
 
 ```{r dystopian googles, echo=TRUE}
 # Dystopian world! --------------------------------------------------------
@@ -529,15 +532,14 @@ plotly::ggplotly(
     scale_y_continuous(breaks = seq(20, 90, by=10)))
 
 ```
-In a ~500 ppm world (practically a virtual reality this century), the amount of carbonate available in the seawater of the Irminger Basin for marine calcifiers (i.e., organisms that use the carbonate to build their body structures) will be of only ~25 μmol·kg^1^. Ocean acidification decreases ~xc~[CO~3~^2-^], compromising the fitness of marine calcifiers and even their survival when waters reach negative values of ~xc~[CO~3~^2-^].
 
-Now that you feel comfortable enough with the `carb` function, you should see the `seacarb::errors()` function: **uncertainty propagation** for computed marine carbonate system variables [@Orr2018]. Mainly because for certain CO~2~ parameters combinations there are limits to the accuracy with which
-the other parameters can be predicted from. These errors come from all the experimentally derived information, including the various equilibrium constants and end up being propagated through the results. For another workshop, Ook?
+In a \~500 ppm world (practically a virtual reality this century), the amount of carbonate available in the seawater of the Irminger Basin for marine calcifiers (i.e., organisms that use the carbonate to build their body structures) will be of only \~25 μmol·kg^1^. Ocean acidification decreases ~xc~[CO~3~^2-^], compromising the fitness of marine calcifiers and even their survival when waters reach negative values of ~xc~[CO~3~^2-^].
 
+Now that you feel comfortable enough with the `carb` function, you should see the `seacarb::errors()` function: **uncertainty propagation** for computed marine carbonate system variables [@Orr2018]. Mainly because for certain CO~2~ parameters combinations there are limits to the accuracy with which the other parameters can be predicted from. These errors come from all the experimentally derived information, including the various equilibrium constants and end up being propagated through the results. For another workshop, Ook?
 
 # Anthropogenic carbon (C~ant~)
 
-Taking advantage that we have loaded GLODAP for the Atlantic Ocean, we are going to set ready a subset of the *Northeast Atlantic* to apply the biogeochemical back-calculation **ϕC~T~^0^ method** for the anthropogenic carbon (**C~ant~**) [@Vazquez-Rodriguez2009]. To apply this method, we need info about carbon variables (**ALK** and **DIC**, that we are going to compute with `seacarb`), inorganic nutrients (**nitrate**, **phosphate** and **silicate**) and **dissolved oxygen** besides location, time and general CTD info. 
+Taking advantage that we have loaded GLODAP for the Atlantic Ocean, we are going to set ready a subset of the *Northeast Atlantic* to apply the biogeochemical back-calculation **ϕC~T~^0^ method** for the anthropogenic carbon (**C~ant~**) [@Vazquez-Rodriguez2009]. To apply this method, we need info about carbon variables (**ALK** and **DIC**, that we are going to compute with `seacarb`), inorganic nutrients (**nitrate**, **phosphate** and **silicate**) and **dissolved oxygen** besides location, time and general CTD info.
 
 ```{r 2nd part NE data , echo=TRUE, eval=TRUE, fig.width=10, fig.height=7}
 # Filtering --------------------------------------------------
@@ -603,7 +605,7 @@ exportedG2NE<-exportedG2NE[,c(17,18,1:16)]
 write.csv(exportedG2NE, file="input_data_CANAIMOC.csv", row.names = F, sep=",") 
 ```
 
-Note that in this step we apply the `carb` function over a large database, with several different flags and input variables, and it was not so difficult, don't you think? We have `r nrow(exportedG2NE)` samples that have everything we need to apply the  **ϕC~T~^0^ method**. Where are located that samples? and how is the TS diagram?
+Note that in this step we apply the `carb` function over a large database, with several different flags and input variables, and it was not so difficult, don't you think? We have `r nrow(exportedG2NE)` samples that have everything we need to apply the **ϕC~T~^0^ method**. Where are located that samples? and how is the TS diagram?
 
 ```{r final map, echo=FALSE, fig.width=10, fig.height=7}
 
@@ -646,7 +648,6 @@ lastmap + exportedTS
 ```
 
 ...time to Matlab now!
-
 
 ::: {style="text-align: center"}
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/21/Matlab_Logo.png" width="150"/>
