@@ -20,3 +20,6 @@ Carbon cycle in the ocean - Methods to estimate anthropogenic carbon
         list.of.packages <- c("R.matlab", "rlist", "tidyverse", "readxl", "marmap", "seacarb", "xlsx", "reshape2", "Imap", "patchwork", "ncdf4", "lubridate", "plotly")
         new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
         if(length(new.packages)) install.packages(new.packages)
+        
+        
+* The R-markdown file **CANAIMOC.Rmd** generates this [static webpage](https://mfontela.github.io/web/CANAIMOC.html)
