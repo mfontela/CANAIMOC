@@ -1,0 +1,655 @@
+---
+title: "CANAIMOC Workshop"
+author: "Marcos Fontela, February 2021"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 5
+    theme: flatly
+    df_print: paged
+bibliography: references.bib
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,fig.align="center")
+list.of.packages <- c("R.matlab", "rlist", "tidyverse", "readxl", "marmap", "seacarb", "xlsx", "reshape2", "Imap", "patchwork", "ncdf4", "lubridate", "plotly")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+#This step install packages when needed
+Sys.setlocale(locale = "English") #For the datetime plots (months in english and not in local language of the laptop)
+
+# Load packages -----------------------------------------------------------
+library(R.matlab)
+library(rlist)
+library(tidyverse)
+library(readxl)
+library(marmap)
+library(seacarb)
+library(xlsx)
+library(reshape2)
+library(Imap)
+library(ncdf4)
+library(lubridate)
+library("plotly")
+library("patchwork")
+```
+
+# Intro
+
+The representation of the marine carbonate system is key to assess ocean carbon uptake and ocean acidification. Fortunately, the seawater carbonate system is well constrained, allowing any two of its variables to be used to calculate all others, given associated temperature, salinity, pressure, and preferably, also inorganic nutrient concentrations. [**Seacarb**](https://cran.r-project.org/web/packages/seacarb/index.html) [@Gattuso2020] is an R package for solving the marine carbonate system and calculating related seawater properties.
+
+**AIM:** Some examples for the calculation of parameters of the seawater carbonate system using *seacarb*:
+
+**NOTE: in the next 6 cases we are going to assume a surface seawater sample** *(hydrostatic pressure in surface, P=0)* **at 15ºC and with a salinity 35.**
+
+## **1^st^ case**:
+
+When you know the total carbon content (from now on **DIC** for Dissolved Inorganic Carbon) and the Total Alkalinity (**ALK**) in μmol·kg^1^. According to the GLODAP database, this is the most *usual* combination in chemical oceanography [@Olsen2020]. [1^st^step]{.ul}: found the *flag* for this combination of variables in the flag-list. The flags which can be used are:
+
+```{r flags, echo=TRUE}
+
+# flag = 1 pH and CO2 given
+# flag = 2 CO2 and HCO3 given
+# flag = 3 CO2 and CO3 given
+# flag = 4 CO2 and ALK given 
+# flag = 5 CO2 and DIC given 
+# flag = 6 pH and HCO3 given 
+# flag = 7 pH and CO3 given 
+# flag = 8 pH and ALK given 
+# flag = 9 pH and DIC given 
+# flag = 10 HCO3 and CO3 given 
+# flag = 11 HCO3 and ALK given 
+# flag = 12 HCO3 and DIC given 
+# flag = 13 CO3 and ALK given 
+# flag = 14 CO3 and DIC given 
+# flag = 15 ALK and DIC given 
+# flag = 21 pCO2 and pH given 
+# flag = 22 pCO2 and HCO3 given 
+# flag = 23 pCO2 and CO3 given 
+# flag = 24 pCO2 and ALK given 
+# flag = 25 pCO2 and DIC given
+```
+
+Therefore, the combination of **ALK** and **DIC** is the flag number 15, `# flag = 15 ALK and DIC given`. **NOTE!** keep in mind that the flag 15 is for alkalinity as the first variable (*var1*) and DIC for the second variable (*var2*). In the syntaxis of the `seacarb::carb()` function the order is very important!
+
+Imagine that our carbon measurements were 2335 μmol·kg^1^ for ALK and 2150 μmol·kg^1^ for DIC. Let's use the `seacarb::carb()` function. Remember that the units allowed in the function are in **mol·kg^1^!** (μmol=10^-6^ mol)
+
+```{r 1st case, echo=TRUE}
+
+output<-carb(flag=15, var1=2335e-6, var2=2150e-6, S=35, T=15, Patm=1, P=0)
+output
+```
+
+The output is a `data.frame` with all the computed carbon parameters! As you can see in the column `pH`, this sample has a pH of `r round(output$pH, 2)`. An advantage of the `carb` function is that by default, it follows the recommendations for the carbon system calculations by @Dickson2007: with the CO~2~ dissociation constants (K~1~ & K~2~) of @Lueker2000, the constant for the sulphate dissociation of @Dickson1990 and the constant for fluoride association of @Perez1987. Also, the default pH scale is the total scale.
+
+## **2^nd^ case**:
+
+When you know the Total Alkalinity (**ALK**) and the **pH**. The flag for this combination is flag=8, with pH as *var1* and ALK as *var2*. Example, imagine that you have lost the DIC measurement for some reason... but you remember what was the pH of the previous sample `r round(output$pH, 2)`. As the pH has no units, you can simply write:
+
+```{r 2nd case, echo=TRUE}
+
+output2<-carb(flag=8, var1=output$pH, var2=2335e-6, S=35, T=15, Patm=1, P=0)
+output2
+```
+
+And in this case, we can see in the column `DIC` that this sample had a DIC of `r round(output2$DIC*10^6, 1)` μmol·kg^1^. Good point about *seacarb* output: `data.frames` are practically self-explanatory (not all the packages that compute ocean carbonate chemistry can say the same).
+
+## **3^rd^ case**:
+
+When you know **DIC** and **pH**. The flag for this combination is flag=9, with pH as *var1* and DIC as *var2*.
+
+```{r 3rd case, echo=TRUE}
+
+output3<-carb(flag=9, var1=output$pH, var2=output2$DIC, S=35, T=15, Patm=1, P=0)
+output3
+```
+
+As you can check, the data contained in all these `output` is consistent among them. Remember that until now we *"play"* only with **ALK**, **DIC** and **pH** but there are until 20 different possible combinations: with pCO~2~, CO~3~, HCO~3~... But yes, to be honest: this point by point examples are pretty bored. Let's make another kind of exercises, a little bit more of action:
+
+## **4^th^ case**:
+
+Suppose an initial water mass with a preindustrial DIC of 2150 μmol·kg^1^ that has taken 50 μmol·kg^1^ of anthropogenic carbon, what will be their pH now? we can assume a constant alkalinity since **ALK** is not affected by CO~2~ gas exchange [@Carter2014].
+
+```{r OA, echo=TRUE, fig.width=7, fig.height=3}
+#### Define carbon variables
+constant_alkalinity=2300e-6 #2300μmolkg
+DIC <- seq(2150, 2200) #From 2150μmolkg to 2200μmolkg. seq is a base R function to generate regular sequences. Example: seq(1,5) is a vector c(1,2,3,4,5)
+
+#### Call seacarb::carb() function
+simOA <- carb(flag=15, var1=constant_alkalinity, var2=DIC*1e-6, S=35, T=15 , Patm=1, P=0)
+
+#### plot ####
+left<-ggplot(simOA, aes(DIC*10^6, pH))+
+  geom_point(colour="cornflowerblue")+
+  ylab("pH (total scale)")+
+  xlab("DIC (μmol/kg)")+
+  scale_y_continuous(breaks = seq(7.75, 7.9, by=.05), limits=c(7.75, 7.91))+
+  theme_minimal()+scale_x_continuous(limits=c(2150, 2200))+
+  theme(legend.title = element_blank(),
+        axis.text = element_text(size=10),
+        axis.text.x = element_text(angle=35),
+        legend.position = "none")
+
+center <- ggplot(simOA, aes(DIC*10^6, CO3*10^6))+
+  geom_point(colour="chartreuse3")+
+  ylab("CO3 (μmol/kg)")+
+  xlab("DIC (μmol/kg)")+
+  scale_y_continuous()+
+  theme_minimal()+scale_x_continuous(limits=c(2150, 2200))+
+  theme(legend.title = element_blank(),
+        axis.text = element_text(size=10),
+        axis.text.x = element_text(angle=35),
+        legend.position = "none")
+
+right<-ggplot(simOA, aes(DIC*10^6, OmegaAragonite))+
+  geom_point(colour="coral3")+
+  ylab("Omega Aragonite")+
+  xlab("DIC (μmol/kg)")+
+  theme_minimal()+scale_x_continuous(limits=c(2150, 2200))+
+  theme(legend.title = element_blank(),
+        axis.text = element_text(size=10),
+        axis.text.x = element_text(angle=35),
+        legend.position = "none")
+
+left + center + right #when "patchwork" package is loaded is very easy to do panels of figures with several subplots ;)
+
+```
+
+...but happens this rate of increase in DIC in the *real ocean*? Yes, for example the upper water mass in the Northeast Atlantic, the **North Atlantic Central Water (NACW)** shows an annual increase of its average concentration close to 1 μmol·kg^1^·yr^1^ [@Perez2010; @Fontela2020].
+
+## **5^th^ case**:
+
+We know **pH** and *assumed* a constant alkalinity value of 2200, 2300, 2400 and 2500 micromol/kg (that we are going to visualize in the background of the next plot) vs change in DIC when there is a simultaneous change in pH and alkalinity (upper plot, large dots).
+
+```{r alkalinity buffering with pH, echo=TRUE}
+# Define a range of pH values
+pH <- seq(7.7, 8.45, length.out=50) #Note: the length.out option specifies the total length of the sequence, in this case "50"
+
+# Carbon system computations (all the same, only change in ALK)
+output2300 <- carb(flag=8, var1=pH, var2=2300e-6, S=35, T=15, Patm=1, P=0)
+output2200 <- carb(flag=8, var1=pH, var2=2200e-6, S=35, T=15, Patm=1, P=0)
+output2400 <- carb(flag=8, var1=pH, var2=2400e-6, S=35, T=15, Patm=1, P=0)
+output2500 <- carb(flag=8, var1=pH, var2=2500e-6, S=35, T=15, Patm=1, P=0)
+
+# what happens when there is a simultaneous change in alkalinity
+alk <- seq(2200e-6, 2500e-6, length.out=50)
+withchange <- carb(flag=8, var1=pH, var2=alk, S=35, T=15, Patm=1, P=0)
+
+
+plotly::ggplotly(
+  ggplot(output2300, aes(pH,DIC*10^6))+ geom_point(aes(colour=as.character(ALK*10^6)))+
+  geom_point(data=output2200, aes(colour=as.character(round(ALK*10^6, -2))))+
+  geom_point(data=output2400, aes(colour=as.character(round(ALK*10^6, -2))))+
+  geom_point(data=output2500, aes(colour=as.character(round(ALK*10^6, -2))))+
+    geom_point(data=withchange, aes(colour=as.character(round(ALK*10^6, -2))), size=5)+
+  xlab("pH (total scale)")+
+  ylab("DIC (umol/kg)")+
+  theme_minimal()+scale_y_continuous(limits=c(1800, 2500))+
+  theme(legend.title = element_blank(),
+        legend.position = "top")
+)
+```
+
+And also when we know **DIC** and *assumed* a constant alkalinity value of 2200, 2300, 2400 and 2500 micromol/kg (that we are going to visualize in the background of the next plot) vs change in pH when there is a simultaneous change in DIC and alkalinity (upper plot, large dots).
+
+```{r alkalinity buffering with DIC, echo=TRUE}
+
+### with DIC now
+# Define a range of DIC values
+DIC <- seq(2150, 2250, length.out=50) #Note: the length.out option specifies the total length of the sequence, in this case "50"
+
+# Carbon system computations (all the same, only change in ALK)
+output2300 <- carb(flag=15, var1=2300e-6, var2=DIC*1e-6, S=35, T=15, Patm=1, P=0)
+output2200 <- carb(flag=15, var1=2200e-6, var2=DIC*1e-6,  S=35, T=15, Patm=1, P=0)
+output2400 <- carb(flag=15, var1=2400e-6, var2=DIC*1e-6,  S=35, T=15, Patm=1, P=0)
+output2500 <- carb(flag=15, var1=2500e-6, var2=DIC*1e-6,  S=35, T=15, Patm=1, P=0)
+
+# what happens when there is a simultaneous change in alkalinity
+ALK <- seq(2200e-6, 2500e-6, length.out=50)
+withchange <- carb(flag=15, var1=ALK, var2=DIC*1e-6, S=35, T=15, Patm=1, P=0)
+
+
+plotly::ggplotly(
+  ggplot(output2300, aes(DIC*10^6, pH))+ geom_point(aes(colour=as.character(ALK*10^6)))+
+    geom_point(data=output2200, aes(colour=as.character(round(ALK*10^6, -2))))+
+    geom_point(data=output2400, aes(colour=as.character(round(ALK*10^6, -2))))+
+    geom_point(data=output2500, aes(colour=as.character(round(ALK*10^6, -2))))+
+    geom_point(data=withchange, aes(colour=as.character(round(ALK*10^6, -2))), size=5)+
+    ylab("pH (total scale)")+
+    xlab("DIC (umol/kg)")+
+    theme_minimal()+
+    # scale_y_continuous(limits=c(1800, 2500))+
+    theme(legend.title = element_blank(),
+          legend.position = "top")
+)
+```
+
+What we can see with these two examples is that total alkalinity can be thought of as a measure of how well-buffered seawater is against changes in pH. What will happen if you come back two plots before (the 4^th^ case) and change the assumed `constant_alkalinity=2320e-6` for a large value and rerun the code chunk?
+
+## **6^th^ case**:
+
+Someone can think: *"I would like to visualize all the combinations of pH and alkalinity that results in the same XXX* (being XXX whatever carbon parameter that you like). Ook, let's do it:
+
+```{r contour filled, fig.height=8, fig.width=12, echo=TRUE}
+
+pH <- seq(7.8, 8.0, length.out=10)
+ALK <- seq(2250e-6, 2450e-6, length.out=10)
+combined <- expand.grid(pH, ALK) #base R function: Create a data frame from all combinations of the supplied vectors. NOTE: combined have a number of rows equal to length.out^
+case6 <- carb(flag=8, var1=combined$Var1, var2=combined$Var2, S=35, T=15, Patm=1, P=0)
+
+DICplot<-ggplot(case6, aes(pH, ALK*1e6))+
+  geom_contour_filled(aes(z=DIC*1e6), breaks = seq(2050, 2350, by=50))+
+  scale_fill_brewer(palette = "PuRd")+
+  labs(x="", y="ALK (μmol/kg)", fill="DIC (μmol/kg)")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
+  theme_minimal()+
+  theme(legend.title=element_text(hjust=0.5))
+
+carbonateplot<-ggplot(case6, aes(pH, ALK*1e6))+
+  geom_contour_filled(aes(z=CO3*1e6), breaks = seq(80, 160, by=10))+
+  labs(x="", y="", fill="CO3 (μmol/kg)")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
+  theme_minimal()+
+  theme(legend.title=element_text(hjust=0.5))
+
+pCO2plot<-ggplot(case6, aes(pH, ALK*1e6))+
+  geom_contour_filled(aes(z=pCO2))+
+  scale_fill_brewer(palette = "Oranges")+
+  labs(x="pH (total scale)", y="ALK (μmol/kg)", fill="pCO2 (μatm)")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
+  theme_minimal()+
+  theme(legend.title=element_text(hjust=0.5))
+
+OmegaAragoniteplot<-ggplot(case6, aes(pH, ALK*1e6))+
+  geom_contour_filled(aes(z=OmegaAragonite))+
+  scale_fill_brewer(palette = "PuBuGn")+
+  labs(x="pH (total scale)", y="", fill="Omega Aragonite")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
+  theme_minimal()+
+  theme(legend.title=element_text(hjust=0.5))
+
+#Do the patchwork plot
+DICplot + carbonateplot + pCO2plot + OmegaAragoniteplot
+```
+
+# Real data
+
+What is better than speculative data? **real data!** =)
+
+## Subpolar North Atlantic surface pCO2 data from a mooring array.
+
+The Ocean Observatories Initiative ([OOI](https://oceanobservatories.org/)) is an ocean observing network that delivers real-time data from autonomous sensor located year round in several mooring arrays throughout the global Ocean. Most important for today's study cases: OOI data are freely available online.
+
+::: {style="text-align: center"}
+<img src="https://oceanobservatories.org/wp-content/uploads/2020/05/ooi-logo-web.png" width="300"/>
+:::
+
+One of the mooring arrays is located in the subpolar North Atlantic, in the Irminger Basin. Between the several equipment that are delivering real-time data today, there is an autonomous pCO_2\_ sensor located at \~12 m depth ([GI01SUMO-RID16-05-PCO2WB000](https://ooinet.oceanobservatories.org/data_access/?search=GI01SUMO-RID16-05-PCO2WB000)). I have downloaded the data for the **pCO~2~** sensor and for the **CTD** and after a quick filtering and a daily mean value computation, these are the measurements since 17-August-2020 until 07-February-2021 (174 days, almost 6 months). Fresh data for you:
+
+```{r OOI data, echo=FALSE, fig.height=9, fig.width=4}
+load("OOI.Rdata")
+Tempplot<-ggplot(OOI, aes(date, Temp))+
+  geom_path(size=.3)+
+  geom_point(aes(colour=as.character(round(OOI$Sal,1))))+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="", y="Temperature (ºC)", colour="Salinity")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.title = element_text(size=15),
+        axis.text = element_text(size=15))
+
+Salplot<-ggplot(OOI, aes(date, Sal))+
+  geom_path(size=.3)+
+  geom_point(aes(colour=as.character(round(OOI$Sal,1))))+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="", y="Salinity", colour="")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle=35),
+        axis.title = element_text(size=15),
+        axis.text = element_text(size=15))
+
+pCO2plot<-ggplot(OOI, aes(date, pCO2))+
+  geom_path(size=.3)+
+  geom_point(colour="blue", alpha=.5, shape=16)+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="Date", y="pCO2")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.title = element_text(size=15),
+        axis.text = element_text(size=15))
+
+Tempplot / Salplot / pCO2plot
+```
+
+WoW! this half-year of data is cool and promising, but this workshop was about ocean carbon variables computations, right? True. And I told you before that we need at least two parameters in order to apply the `carb` function and solve the carbon system and **by now we only have pCO~2~ data**. Also true. then, we are going to do a *little trick* to achieve our second variable: as we have the salinity from the CTD we are going to compute a *modelled* alkalinity based on the strong relationship between salinity and total alkalinity.
+
+## Get alkalinity data
+Let's load some high-quality ocean carbon data collected through chemical analysis of discrete water samples by that is *open access*! OMG! where? In [GLODAP](www.glodap.info), obviously!
+
+::: {style="text-align: center"}
+<img src="https://www.glodap.info/wp-content/uploads/2017/09/cropped-glodap_logo_trans.png" width="300"/>
+:::
+
+```{r load Atlantic GLODAp data, echo=TRUE}
+# Load GLODAP ------------------------------------------------------------
+local_file=1 #Faster when local file is available, obvious.
+if (local_file) {
+  A<-readMat("C:/Users/MFontela/Nextcloud/Database/GLODAP/GLODAPv2.2020_Atlantic_Ocean.mat") #find your local copy of file GLODAPv2.2020_Atlantic_Ocean.mat 
+} else{
+  #Alternative: download the .mat file directly from the GLODAPv2 web (https://www.glodap.info/index.php/merged-and-adjusted-data-product/)
+  library(utils)
+  download.file("https://www.glodap.info/glodap_files/v2.2020/GLODAPv2.2020_Atlantic_Ocean.mat", "GLODAPv2.2020_Atlantic_Ocean.mat")
+  A<-readMat("GLODAPv2.2020_Atlantic_Ocean.mat")
+}
+
+#Keep the expocode and their correspondence with G2cruise (expocodeno)
+expocodes<-data.frame(); expocodes<-as.data.frame(unlist(A$expocode))
+expocodes[,2]<-as.data.frame(unlist(A$expocodeno))
+names(expocodes)<-c("expocode","expocodeno")
+A<-list.remove(A, c("expocode", "expocodeno")) #To ease things when converting from list to data.frame
+A<-as.data.frame(A)
+```
+
+With the previous chunk of code we load all the data for the Atlantic Ocean that is inside GLODAP. Near 0.5 million spatial data points... Maybe too much for some quick examples, don't you think? let's filter the data that is "near" to the Irminger OOI mooring.
+
+```{r Sal vs Alk data, echo=FALSE, eval=TRUE, fig.width=10, fig.height=7}
+Irminger<-data.frame(lon=c(-45,-30),
+                     lat=c(56,65))
+I<-A%>%
+  filter(G2latitude>=(min(Irminger$lat)) & G2latitude<=(max(Irminger$lat)))%>% #latitude filter
+  filter(G2longitude>=(min(Irminger$lon)) & G2longitude<=(max(Irminger$lon)))%>% #longitude filter
+  mutate_all(.funs = funs(ifelse(. == "NaN", NA, .)))%>% #because it's a .mat file
+  filter(G2salinity>34)%>%
+  filter(G2talkf==2)%>% #only data with measured alkalinity
+  filter(G2pressure<155) #upper layer considered until 155 dbar
+
+Irmap <- getNOAA.bathy(lon1 = Irminger[1,1], lon2 = Irminger[2,1],
+                     lat1 = Irminger[1,2], lat2 = Irminger[2,2], resolution = 10) #Lowest possible resolution=1 (also slowest)
+
+Irmap_plot<-ggplot(Irmap, aes(x=x, y=y)) + 
+      coord_quickmap() +
+      # background
+     geom_raster(aes(fill=z)) +
+     # scale_fill_etopo() +
+      scale_fill_gradient2(low="cadetblue1", mid="white", high="darkgreen", midpoint=0, guide=F)+
+     # countours
+      geom_contour(aes(z=z),breaks=c(-1000, -2000, -3000,-4000,-5000),colour="gray", size=0.5) +
+      geom_contour(aes(z=z),breaks=c(0),colour="black", size=1) +  
+      geom_point(data=I, aes(x=G2longitude, y = G2latitude, colour=as.character(G2month)),size=2, alpha=.6)+
+  annotate("point", -39.5, 59.9, size=6, shape=25, fill="red")+
+  annotate("text", -39.2, 60.5, label="OOI mooring", colour="red", size=5)+
+      scale_x_continuous(expand=c(0,0))+
+      scale_y_continuous(expand=c(0,0))+
+      labs(x="", y="")+
+      theme(panel.border = element_rect(colour="black", fill=NA, size=4),
+        text = element_text(size=22, colour="black"),
+        legend.title = element_blank(),
+        legend.position = "top")
+
+
+Irm_SalTalk_plot<-ggplot(I, aes(G2salinity, G2talk))+
+  geom_point(size=2, alpha=.3)+ #Add aes(colour=as.character(G2month)) if you want to wonder why autonomous sensors are important to fill the gap of winter in this specific region...
+  geom_smooth(method = "lm", size=2, colour="red")+
+  annotate("text", 34.25, 2320, label="ALK=610 + 48.6*Sal", colour="red", fontface =2)+
+  theme_minimal(base_size = 22)+
+  labs(x="Salinity", y="ALK (μmol/kg)")
+
+
+Irmap_plot + Irm_SalTalk_plot
+```
+
+The tight relationship between salinity and alkalinity (and obviously, the fact that this is a study case/exercise and we don't aim to develop relevant conclusions from here) allows the generation of an alkalinity value with the linear relationship of the right plot. This computed alkalinity will be used inside the `carb` function.
+
+## Compute carbon variables from pCO2 and alkalinity
+
+```{r OOI carbon, echo=TRUE}
+# summary(lm(G2talk ~ G2salinity, data=I))
+#Add the new ALK to the OOI data.frame
+OOI<-mutate(OOI, ALK=610+48.6*Sal) #data from the basic lm
+
+#### Carbon system function with flag 24, pCO2 and Alk
+carbOOI<-carb(flag=24, var1=OOI$pCO2, var2=OOI$ALK*10^-6,  S=OOI$Sal, T=OOI$Temp, Patm=1, P=(12/10)) #NOTE! P is pressure in bar, NOT dbar. We are going to assume that the 12 m of the equipment location are fixed and that they are 12 dbar.
+
+carbOOI<-bind_cols(OOI[,1], carbOOI) #join the first column of date to the carbon variables.
+
+#compute xcCO3 (another carbon variable)
+carbOOI<-mutate(carbOOI, xcCO3=CO3-(CO3/OmegaAragonite))
+
+# plot something
+pHplot<-ggplot(carbOOI, aes(date, pH))+
+  geom_path(size=.3)+
+  geom_point(aes(colour=pCO2))+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="Date", y="pH")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.text = element_text(size=20))
+plotly::ggplotly(pHplot)
+
+```
+
+The calculated pH has a specular shape with regard pCO~2~: it is high at the end of summer, when the pCO~2~ is low; and goes down with the winter when the pCO~2~ increases.
+
+```{r OOI plotemall, echo=FALSE, fig.width=12, fig.height=15}
+
+DICplot<-ggplot(carbOOI, aes(date, DIC*10^6))+
+  geom_path(size=2)+
+  geom_point(colour="red", size=4)+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="", y="DIC (μmol/kg)")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+ALKplot<-ggplot(carbOOI, aes(date, ALK*10^6))+
+  geom_path(size=2)+
+  geom_point(colour="green", size=4)+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="", y="ALK (μmol/kg)")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+xcCO3plot<-ggplot(carbOOI, aes(date, xcCO3*10^6))+
+  geom_path(size=2)+
+  geom_point(colour="cyan", size=4)+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="Date", y="xcCO3 (μmol/kg)")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+Omegaplot<-ggplot(carbOOI, aes(date, OmegaAragonite))+
+  geom_path(size=2)+
+  geom_point(colour="red", size=4)+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+  labs(x="Date", y="Omega Aragonite")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=35),
+        axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+pHplot<-pHplot+
+  geom_path(size=2)+
+  geom_point(aes(colour=pCO2), size=4)+ #update (to make it similar to the rest of the plots in the panel)
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+pCO2plot<-pCO2plot+
+  geom_path(size=2)+
+  geom_point(colour="blue", size=4)+ #update (to make it similar to the rest of the plots in the panel)
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=20))
+
+pHplot+ pCO2plot + DICplot + ALKplot + xcCO3plot + Omegaplot + plot_layout(nrow = 3)
+```
+
+This is the natural seasonal variability in surface waters of a subpolar seasonally stratified biome [@FayMcKinley2017]. The shoal of the mixed layer depth leads to the strong biological productivity of spring (months not show in this example)/summer that strongly draws down DIC. The reason behind the winter increase of pCO~2~ is the strong vertical mixing that supplies carbon from depth to the surface [@Kortzinger2008].
+
+##Future conditions
+Can we add an anthropogenic perturbation on top of this natural variability? Come on, put your own *dystopian googles* and let's see: **Assuming that seawater pCO~2~ will follow atmospheric pCO~2~**, what will be the status in a +100 ppm atmospheric CO~2~ world?
+
+```{r dystopian googles, echo=TRUE}
+# Dystopian world! --------------------------------------------------------
+
+# Carbon system computation
+FuturecarbIrM<-carb(flag=24, var1=carbOOI$pCO2 + 100, var2=carbOOI$ALK,  S=carbOOI$S, T=carbOOI$T, Patm=1, P=(12/10))
+
+FuturecarbIrM<-FuturecarbIrM%>%
+  mutate(xcCO3=CO3-(CO3/OmegaAragonite))%>%
+  bind_cols(carbOOI[,1], .) #to add date
+
+plotly::ggplotly(
+  ggplot(carbOOI, aes(date, xcCO3*10^6))+
+  geom_point(aes(colour= xcCO3*10^6))+
+  geom_point(data=FuturecarbIrM, colour= "red")+
+    scale_x_datetime(date_breaks = "1 month", date_labels = "%b-%y")+
+    scale_y_continuous(breaks = seq(20, 90, by=10)))
+
+```
+In a ~500 ppm world (practically a virtual reality this century), the amount of carbonate available in the seawater of the Irminger Basin for marine calcifiers (i.e., organisms that use the carbonate to build their body structures) will be of only ~25 μmol·kg^1^. Ocean acidification decreases ~xc~[CO~3~^2-^], compromising the fitness of marine calcifiers and even their survival when waters reach negative values of ~xc~[CO~3~^2-^].
+
+Now that you feel comfortable enough with the `carb` function, you should see the `seacarb::errors()` function: **uncertainty propagation** for computed marine carbonate system variables [@Orr2018]. Mainly because for certain CO~2~ parameters combinations there are limits to the accuracy with which
+the other parameters can be predicted from. These errors come from all the experimentally derived information, including the various equilibrium constants and end up being propagated through the results. For another workshop, Ook?
+
+
+# Anthropogenic carbon (C~ant~)
+
+Taking advantage that we have loaded GLODAP for the Atlantic Ocean, we are going to set ready a subset of the *Northeast Atlantic* to apply the biogeochemical back-calculation **ϕC~T~^0^ method** for the anthropogenic carbon (**C~ant~**) [@Vazquez-Rodriguez2009]. To apply this method, we need info about carbon variables (**ALK** and **DIC**, that we are going to compute with `seacarb`), inorganic nutrients (**nitrate**, **phosphate** and **silicate**) and **dissolved oxygen** besides location, time and general CTD info. 
+
+```{r 2nd part NE data , echo=TRUE, eval=TRUE, fig.width=10, fig.height=7}
+# Filtering --------------------------------------------------
+#Define "near": a box of the ~eastern North Atlantic
+NE<-data.frame(lon=c(-30,0),
+                   lat=c(35,65))
+
+###########FILTER & ADD THE carb FLAG ###########
+G2NE<-A%>%
+  filter(G2latitude>=(min(NE$lat)) & G2latitude<=(max(NE$lat)))%>%
+  filter(G2longitude>=(min(NE$lon)) & G2longitude<=(max(NE$lon)))%>% #filter the box of the eastern north Atlantic
+  mutate_all(.funs = funs(ifelse(. == "NaN", NA, .)))%>% #just in case because it's a .mat file
+  filter(!is.na(G2salinity))%>%
+  filter(!is.na(G2theta))%>% #carb function can't have NA neither in theta or salinity
+  ######### ADD THE FLAG #########
+  mutate(flag=ifelse(G2talkf==2 & G2tco2f==2, 15, #flag 15 Alk & DIC
+                     ifelse(G2talkf==2 & G2tco2f==0 & G2phtsinsitutpf==2,8, #flag 8 pH & Alk
+                            ifelse(G2talkf==0 & G2tco2f==2 & G2phtsinsitutpf==2, 9,NA))))%>% #flag 9 pH & DIC
+  arrange(flag)%>%
+  filter(!is.na(flag)) #If there aren't two carbon variables, delete it.
+
+
+########### CARBON SYSTEM COMPUTATION ###########
+
+
+extendedG2NE<-bind_cols(G2NE[,1:ncol(G2NE)-1], #To delete the flag column in order to avoid repetition 
+                        carb(flag=G2NE$flag, #### Carbon system computation
+                             var1=ifelse(G2NE$flag==15, G2NE$G2talk/10^6, 
+                                         ifelse(G2NE$flag==9,G2NE$G2phtsinsitutp,
+                                                ifelse(G2NE$flag==8,G2NE$G2phtsinsitutp,NA))),
+                             var2=ifelse(G2NE$flag==15, G2NE$G2tco2/10^6, 
+                                         ifelse(G2NE$flag==9,G2NE$G2tco2/10^6,
+                                                ifelse(G2NE$flag==8,G2NE$G2talk/10^6,NA))),                                 
+                             G2NE$G2salinity, 
+                             G2NE$G2theta, 
+                             G2NE$G2pressure/10, #pressure in bar!
+                             Patm=1.0, 
+                             Pt=G2NE$G2phosphate/10^6, #Nutrients in mols/Kg
+                             Sit=G2NE$G2silicate/10^6,
+                             pHscale="T", kf="pf", k1k2="l", ks="d", b="u74"))
+
+
+########### EXPORT TO MATLAB ###########
+
+
+exportedG2NE<-extendedG2NE%>%
+  mutate(year=decimal_date(ymd(sprintf('%04d%02d%02d',G2year,G2month,G2day)))) %>% #Create a new column with the decimal year
+  mutate(G2nitrate=ifelse(G2nitritef==2, G2nitrate+G2nitrite, G2nitrate))%>% #Minor correction: If there is nitrite available, and is good enough (flag==2), add it to the nitrate. 
+  filter(!is.na(G2pressure) & !is.na(G2theta) & !is.na(G2salinity) &
+           !is.na(G2oxygen) & !is.na(G2silicate) & !is.na(G2nitrate) &
+           !is.na(G2phosphate) & !is.na(DIC) & !is.na(ALK))%>% #Delete rows without all the needed parameters
+  filter(G2salinityf==2 & G2oxygenf==2  & G2silicatef==2 & G2nitratef==2 & G2phosphatef==2) %>% #Also we are going to keep only with the high quality data (flag==2)
+  select(G2station,G2bottle,G2year,G2longitude, G2latitude, G2depth,G2pressure,
+         G2theta, G2salinity, G2oxygen, G2silicate, G2nitrate, G2phosphate, DIC, ALK, year) %>% #To select only the columns with the needed info
+  mutate(DIC=DIC*10^6, ALK=ALK*10^6)%>% #input data for phi_Cant is in umol/kg
+  rename(St=G2station, Bottle=G2bottle, date=G2year, longitude=G2longitude, latitude=G2latitude, Depth=G2depth, pressure=G2pressure, theta=G2theta, salinity=G2salinity, oxygen=G2oxygen, silicate=G2silicate, nitrate=G2nitrate, phosphate=G2phosphate, ct=DIC, at=ALK) %>% #The rename helps for the Matlab phi_Cant script
+  mutate(Loc=date*10^9+St*10^3+Bottle, Orden=1:nrow(.)) #minor addition, just for the sake of consistency.
+
+#minor reordering, just for the sake of consistency.
+exportedG2NE<-exportedG2NE[,c(17,18,1:16)]
+
+#Export to csv without row.names
+write.csv(exportedG2NE, file="input_data_CANAIMOC.csv", row.names = F, sep=",") 
+```
+
+Note that in this step we apply the `carb` function over a large database, with several different flags and input variables, and it was not so difficult, don't you think? We have `r nrow(exportedG2NE)` samples that have everything we need to apply the  **ϕC~T~^0^ method**. Where are located that samples? and how is the TS diagram?
+
+```{r final map, echo=FALSE, fig.width=10, fig.height=7}
+
+m <- getNOAA.bathy(lon1 = NE[1,1], lon2 = NE[2,1],
+                     lat1 = NE[1,2], lat2 = NE[2,2], resolution = 10) #Lowest possible resolution=1 (also slowest)
+
+
+lastmap<-ggplot(m, aes(x=x, y=y)) + 
+      coord_quickmap() +
+      # background
+     geom_raster(aes(fill=z)) +
+     # scale_fill_etopo() +
+      scale_fill_gradient2(low="cadetblue1", mid="white", high="darkgreen", midpoint=0, guide=F)+
+     # countours
+      geom_contour(aes(z=z),breaks=c(-1000, -2000, -3000,-4000,-5000),colour="gray", size=0.5) +
+      geom_contour(aes(z=z),breaks=c(0),colour="black", size=1) +  
+      geom_point(data=exportedG2NE, aes(x=longitude, y = latitude,colour=as.character(round(exportedG2NE$year,-1))),size=2)+
+      scale_x_continuous(expand=c(0,0))+
+      scale_y_continuous(expand=c(0,0))+
+      labs(x="", y="")+
+      theme(
+        panel.border = element_rect(colour="black", fill=NA, size=4),
+        text = element_text(size=20, colour="black"),
+        legend.title = element_blank(),
+        legend.position="top")
+
+exportedTS<-ggplot(exportedG2NE, aes(salinity, theta))+
+  geom_point(aes(colour=as.character(round(latitude,-1))), size=1.4, alpha=.6)+
+  scale_x_continuous(limits = c(34.5,36.5))+
+  scale_y_continuous(limits = c(1,22))+
+  labs(x="Salinity", y="Theta (ºC)", colour="Latitude band")+
+  theme_minimal()+
+  theme(axis.text = element_text(size=20),
+        axis.title = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=20))
+
+lastmap + exportedTS
+
+```
+
+...time to Matlab now!
+
+
+::: {style="text-align: center"}
+<img src="https://upload.wikimedia.org/wikipedia/commons/2/21/Matlab_Logo.png" width="150"/>
+:::
+
+# References
