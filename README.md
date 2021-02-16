@@ -12,7 +12,7 @@ Carbon cycle in the ocean - Methods to estimate anthropogenic carbon
 
 * Seawater carbon calculations in Matlab with [CO2SYS](https://github.com/jamesorr/CO2SYS-MATLAB/archive/master.zip) from [James Orr Github](https://github.com/jamesorr/CO2SYS-MATLAB)
 
-* [GLODAPv2.2020 Data Poduct for the Atlantic Ocean](https://www.ncei.noaa.gov/data/oceans/ncei/ocads/data/0210813/GLODAPv2.2020_Atlantic_Ocean.mat)(in *.mat* extension): 
+* [GLODAPv2.2020 Data Product for the Atlantic Ocean](https://www.ncei.noaa.gov/data/oceans/ncei/ocads/data/0210813/GLODAPv2.2020_Atlantic_Ocean.mat)(in *.mat* extension): 
 
 * **R packages**: *(run this chunk of code from any R console)*
 
