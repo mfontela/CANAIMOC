@@ -1,12 +1,11 @@
 ![](CANAIMOC_banner.png)
 
-Carbon cycle in the ocean - Methods to estimate anthropogenic carbon
-
+Carbon cycle in the ocean - Methods to estimate anthropogenic carbon (Educational Session Program Session 3: Ocean carbon cycle)
 
 *Marcos Fontela (CCMAR)*
 
 
-**List of resources for the 2021 CANAIMOC Workshop**
+**List of resources:**
 
 * Biogeochemical back-calculation phi_Cant method [Download toolbox](http://oceano.iim.csic.es/_media/cantphict0_toolbox_20190213.zip)
 
