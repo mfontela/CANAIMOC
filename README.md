@@ -1,4 +1,4 @@
-# CANAIMOC
+![](CANAIMOC_banner.png)
 
 Carbon cycle in the ocean - Methods to estimate anthropogenic carbon
 
